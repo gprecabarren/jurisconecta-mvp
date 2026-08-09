@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "jurisconecta-mvp",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-08-08",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jurisconecta-db",
+      "database_id": "106131c9-81eb-49de-9418-421ccc172576"
+    }
+  ],
+  "assets": {
+    "directory": "./out",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
