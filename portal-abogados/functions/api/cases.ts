@@ -1,14 +1,16 @@
 import { cleanText, D1Database, requireUser, UserAuthEnv } from "../_lib/user-auth";
+import { legalAreas } from "../../shared/legal-catalog";
+import { isChileRegion } from "../../shared/chile";
 
 interface Context { request: Request; env: UserAuthEnv & { DB?: D1Database }; }
 type CaseInput = { category?: unknown; topic?: unknown; situation?: unknown; desiredOutcome?: unknown; attentionMode?: unknown; region?: unknown; commune?: unknown; };
-type CaseRow = { id: string; category: string; title: string; description: string; region: string | null; status: string; created_at: string; attention_mode: string | null; commune: string | null; };
+type CaseRow = { id: string; category: string; title: string; description: string; region: string | null; status: string; created_at: string; attention_mode: string | null; commune: string | null; view_count: number; };
 
 export const onRequestGet = async ({ request, env }: Context) => {
   if (!env.DB) return Response.json({ error: "La base de datos no est� conectada." }, { status: 503 });
   const session = await requireUser(request, env, "person");
   if (!session) return Response.json({ error: "No autorizado" }, { status: 401 });
-  const cases = await env.DB.prepare("SELECT c.id, c.category, c.title, c.description, c.region, c.status, c.created_at, d.attention_mode, d.commune FROM legal_cases c LEFT JOIN case_details d ON d.case_id = c.id WHERE c.person_id = ? ORDER BY c.created_at DESC").bind(session.id).all<CaseRow>();
+  const cases = await env.DB.prepare("SELECT c.id, c.category, c.title, c.description, c.region, c.status, c.created_at, d.attention_mode, d.commune, COALESCE((SELECT COUNT(*) FROM case_views cv WHERE cv.case_id = c.id), 0) AS view_count FROM legal_cases c LEFT JOIN case_details d ON d.case_id = c.id WHERE c.person_id = ? ORDER BY c.created_at DESC").bind(session.id).all<CaseRow>();
   return Response.json({ cases: cases.results });
 };
 
@@ -24,6 +26,9 @@ export const onRequestPost = async ({ request, env }: Context) => {
   const attentionMode = cleanText(payload.attentionMode, 40);
   const region = cleanText(payload.region, 80);
   const commune = cleanText(payload.commune, 80);
+  const selectedArea = legalAreas.find((area) => area.title === category);
+  if (!selectedArea || !selectedArea.topics.includes(topic)) return Response.json({ error: "Selecciona una materia y tipo de caso validos." }, { status: 400 });
+  if (region && !isChileRegion(region)) return Response.json({ error: "Selecciona una region valida de Chile." }, { status: 400 });
   if (!category || !topic || situation.length < 30 || desiredOutcome.length < 10 || !attentionMode) return Response.json({ error: "Completa los detalles principales de tu caso." }, { status: 400 });
   const id = crypto.randomUUID();
   await env.DB.batch([

@@ -3,12 +3,12 @@ import type { AuthEnv } from "../../_lib/github-auth";
 import type { D1Database } from "../../_lib/user-auth";
 
 interface Context { request: Request; env: AuthEnv & { DB?: D1Database }; }
-type AdminCase = { id: string; category: string; title: string; status: string; credit_cost: number; created_at: string; person_name: string; person_email: string; region: string | null; commune: string | null; access_count: number; };
+type AdminCase = { id: string; category: string; title: string; status: string; credit_cost: number; created_at: string; person_name: string; person_email: string; region: string | null; commune: string | null; access_count: number; view_count: number; };
 
 export const onRequestGet = async ({ request, env }: Context) => {
   if (!await isAdmin(request, env)) return Response.json({ error: "No autorizado" }, { status: 401 });
   if (!env.DB) return Response.json({ error: "La base de datos no está conectada." }, { status: 503 });
-  const cases = await env.DB.prepare("SELECT c.id, c.category, c.title, c.status, c.credit_cost, c.created_at, u.full_name AS person_name, u.email AS person_email, c.region, d.commune, COUNT(a.lawyer_id) AS access_count FROM legal_cases c JOIN users u ON u.id = c.person_id LEFT JOIN case_details d ON d.case_id = c.id LEFT JOIN case_accesses a ON a.case_id = c.id GROUP BY c.id ORDER BY c.created_at DESC").all<AdminCase>();
+  const cases = await env.DB.prepare("SELECT c.id, c.category, c.title, c.status, c.credit_cost, c.created_at, u.full_name AS person_name, u.email AS person_email, c.region, d.commune, COUNT(a.lawyer_id) AS access_count, COALESCE((SELECT COUNT(*) FROM case_views cv WHERE cv.case_id = c.id), 0) AS view_count FROM legal_cases c JOIN users u ON u.id = c.person_id LEFT JOIN case_details d ON d.case_id = c.id LEFT JOIN case_accesses a ON a.case_id = c.id GROUP BY c.id ORDER BY c.created_at DESC").all<AdminCase>();
   return Response.json({ cases: cases.results });
 };
 

@@ -1,4 +1,5 @@
 import { cleanText, D1Database, requireUser, UserAuthEnv } from "../../_lib/user-auth";
+import { isChileRegion } from "../../../shared/chile";
 
 interface Context { request: Request; env: UserAuthEnv & { DB?: D1Database }; }
 type LawyerProfile = { full_name: string; email: string; status: string; phone: string | null; region: string | null; commune: string | null; specialties_json: string; bio: string | null; plan_code: string; credit_balance: number; renewal_date: string | null; application_status: string; application_review_note: string | null; };
@@ -27,8 +28,10 @@ export const onRequestPatch = async ({ request, env }: Context) => {
   const fullName = cleanText(payload.fullName, 120);
   const specialties = Array.isArray(payload.specialties) ? payload.specialties.filter((item): item is string => typeof item === "string").map((item) => cleanText(item, 80)).filter(Boolean).slice(0, 10) : [];
   if (fullName.length < 3) return Response.json({ error: "Ingresa tu nombre completo." }, { status: 400 });
+  const region = cleanText(payload.region, 80);
+  if (region && !isChileRegion(region)) return Response.json({ error: "Selecciona una region valida de Chile." }, { status: 400 });
   await env.DB.batch([
-    env.DB.prepare("UPDATE users SET full_name = ?, phone = ?, region = ?, commune = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(fullName, cleanText(payload.phone, 30) || null, cleanText(payload.region, 80) || null, cleanText(payload.commune, 80) || null, session.id),
+    env.DB.prepare("UPDATE users SET full_name = ?, phone = ?, region = ?, commune = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(fullName, cleanText(payload.phone, 30) || null, region || null, cleanText(payload.commune, 80) || null, session.id),
     env.DB.prepare("UPDATE lawyer_profiles SET specialties_json = ?, bio = ? WHERE user_id = ?").bind(JSON.stringify(specialties), cleanText(payload.bio, 3000) || null, session.id),
   ]);
   return Response.json({ saved: true });

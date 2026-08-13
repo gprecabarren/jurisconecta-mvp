@@ -1,4 +1,4 @@
-import { cleanText, D1Database, R2Bucket, requireUser, UserAuthEnv } from "../../_lib/user-auth";
+import { cleanText, D1Database, normalizeRut, R2Bucket, requireUser, UserAuthEnv, validRut } from "../../_lib/user-auth";
 
 interface Context { request: Request; env: UserAuthEnv & { DB?: D1Database; LAWYER_DOCUMENTS?: R2Bucket }; }
 type ApplicationInput = { rut?: unknown; idDocumentNumber?: unknown; birthDate?: unknown; graduationDate?: unknown; university?: unknown; attentionMode?: unknown; serviceLocalities?: unknown; experienceYears?: unknown; gender?: unknown; additionalStudies?: unknown; workExperience?: unknown; linkedinUrl?: unknown; twitterUrl?: unknown; youtubeUrl?: unknown; facebookUrl?: unknown; instagramUrl?: unknown; websiteUrl?: unknown; address?: unknown; planCode?: unknown; specialties?: unknown; bio?: unknown; };
@@ -19,11 +19,12 @@ export const onRequestPost = async ({ request, env }: Context) => {
   const input = fields as ApplicationInput;
   const selectedPlan = plans.has(cleanText(input.planCode, 30)) ? cleanText(input.planCode, 30) : "silver";
   const specialties = typeof input.specialties === "string" ? input.specialties.split("|").map((item) => cleanText(item, 80)).filter(Boolean).slice(0, 10) : [];
-  const rut = cleanText(input.rut, 20);
+  const rut = normalizeRut(input.rut);
   const university = cleanText(input.university, 160);
   const graduationDate = cleanText(input.graduationDate, 20);
   const bio = cleanText(input.bio, 3000);
-  if (rut.length < 7 || university.length < 3 || graduationDate.length < 8 || specialties.length === 0 || bio.length < 30) return Response.json({ error: "Completa RUT, universidad, fecha de titulación, especialidades y presentación." }, { status: 400 });
+  if (!validRut(rut)) return Response.json({ error: "Ingresa un RUT chileno valido." }, { status: 400 });
+  if (university.length < 3 || graduationDate.length < 8 || specialties.length === 0 || bio.length < 30) return Response.json({ error: "Completa universidad, fecha de titulacion, especialidades y presentacion." }, { status: 400 });
   const documentTypes = ["identity_front", "identity_back", "degree_certificate"] as const;
   const documents = documentTypes.map((type) => ({ type, file: form.get(type) }));
   if (documents.some(({ file }) => !(file instanceof File) || !filesAllowed(file))) return Response.json({ error: "Adjunta ambos lados del carnet y el certificado de título en PDF, JPG o PNG de hasta 5 MB." }, { status: 400 });

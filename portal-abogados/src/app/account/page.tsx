@@ -3,8 +3,9 @@
 import { Check, CircleAlert, LockKeyhole, Save, Settings2, UserRound } from "lucide-react";
 import { useState } from "react";
 import { PortalShell } from "../../components/portal-shell";
+import { professionalLegalAreas } from "../../../shared/legal-catalog";
 
-const areas = ["Derecho Civil", "Derecho Familiar", "Derecho Laboral", "Derecho Penal", "Derecho Comercial", "Derecho Tributario", "Protección al Consumidor", "Derechos Humanos", "Otros casos"];
+const areas = professionalLegalAreas;
 
 export default function AccountPage() {
   const [tab, setTab] = useState<"profile" | "password" | "notifications">("profile");

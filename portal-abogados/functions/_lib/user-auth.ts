@@ -135,6 +135,26 @@ export function cleanText(value: unknown, maximum = 500) {
   return typeof value === "string" ? value.trim().slice(0, maximum) : "";
 }
 
+export function normalizeRut(value: unknown) {
+  return cleanText(value, 20).replace(/[^0-9kK]/g, "").toUpperCase();
+}
+
+export function validRut(value: unknown) {
+  const rut = normalizeRut(value);
+  if (rut.length < 8 || rut.length > 9) return false;
+  const body = rut.slice(0, -1);
+  const verifier = rut.slice(-1);
+  let sum = 0;
+  let multiplier = 2;
+  for (let index = body.length - 1; index >= 0; index -= 1) {
+    sum += Number(body[index]) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+  const computed = 11 - (sum % 11);
+  const expected = computed === 11 ? "0" : computed === 10 ? "K" : String(computed);
+  return verifier === expected;
+}
+
 export function loginDestination(role: UserRole) {
   return role === "person" ? "/cliente" : "/dashboard";
 }
