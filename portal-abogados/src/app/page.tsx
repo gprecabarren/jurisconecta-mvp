@@ -61,7 +61,7 @@ export default function Home() {
             <li><Check size={17} /> Atención presencial u online</li>
             <li><Check size={17} /> Profesionales con perfiles revisados</li>
           </ul>
-          <a className="primary-button" href="#casos">Encontrar un abogado <ArrowRight size={18} /></a>
+          <Link className="primary-button" href="/registro">Encontrar un abogado <ArrowRight size={18} /></Link>
         </div>
         <div className="hero-panel" aria-label="Resumen de solicitud legal">
           <div className="panel-topline"><span className="status-dot" />Solicitud en pocos pasos</div>
@@ -130,7 +130,7 @@ export default function Home() {
                   <ArrowRight size={18} />
                 </button>
               ))}
-              <Link className="case-cta" href={selectedCase ? `/encuentra-abogado?caso=${encodeURIComponent(selectedCase)}` : "/encuentra-abogado"}>
+              <Link className="case-cta" href={selectedCase ? `/registro?caso=${encodeURIComponent(selectedCase)}` : "/registro"}>
                 <span>{selectedCase ? `Continuar con: ${selectedCase}` : "Selecciona un caso para continuar"}</span>
                 <ArrowRight size={19} />
               </Link>
@@ -162,7 +162,7 @@ export default function Home() {
 
       <footer className="site-footer section-shell">
         <div className="footer-brand"><Link className="brand" href="/"><span className="brand-mark"><Scale size={20} /></span><span>Juris<span>Conecta</span></span></Link><p>Conexiones legales claras para Chile.</p></div>
-        <div><h3>Personas</h3><Link href="/encuentra-abogado">Publicar un caso</Link><Link href="/registro">Crear cuenta</Link></div>
+        <div><h3>Personas</h3><Link href="/registro">Publicar un caso</Link><Link href="/registro">Crear cuenta</Link></div>
         <div><h3>Profesionales</h3><Link href="/registro?tipo=abogado">Crear perfil</Link><Link href="/ingresar">Ingresar</Link></div>
         <div><h3>Soporte</h3><a href="mailto:hola@jurisconecta.cl">Contacto</a><a href="#">Privacidad</a></div>
       </footer>

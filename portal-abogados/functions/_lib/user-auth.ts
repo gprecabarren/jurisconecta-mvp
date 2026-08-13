@@ -1,0 +1,132 @@
+export type UserRole = "person" | "lawyer" | "admin";
+
+export interface D1Statement {
+  bind(...values: unknown[]): D1Statement;
+  run(): Promise<unknown>;
+  first<T>(): Promise<T | null>;
+  all<T>(): Promise<{ results: T[] }>;
+}
+
+export interface D1Database {
+  prepare(query: string): D1Statement;
+  batch(statements: D1Statement[]): Promise<unknown>;
+}
+
+export interface UserAuthEnv {
+  DB?: D1Database;
+  USER_AUTH_SECRET?: string;
+}
+
+export type UserSession = {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  expiresAt: number;
+};
+
+const encoder = new TextEncoder();
+const iterations = 210000;
+
+function base64Url(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function base64UrlText(value: string) {
+  return base64Url(encoder.encode(value));
+}
+
+function fromBase64Url(value: string) {
+  const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "===".slice((value.length + 3) % 4);
+  return atob(padded);
+}
+
+function bytesFromBase64Url(value: string) {
+  return Uint8Array.from(fromBase64Url(value), (character) => character.charCodeAt(0));
+}
+
+function equal(left: string, right: string) {
+  if (left.length !== right.length) return false;
+  let result = 0;
+  for (let index = 0; index < left.length; index += 1) result |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  return result === 0;
+}
+
+async function sign(value: string, secret: string) {
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return base64Url(new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(value))));
+}
+
+async function passwordBits(password: string, salt: string) {
+  const material = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", salt: bytesFromBase64Url(salt), iterations, hash: "SHA-256" }, material, 256));
+}
+
+export async function hashPassword(password: string) {
+  const saltBytes = new Uint8Array(16);
+  crypto.getRandomValues(saltBytes);
+  const salt = base64Url(saltBytes);
+  return `pbkdf2$${iterations}$${salt}$${base64Url(await passwordBits(password, salt))}`;
+}
+
+export async function verifyPassword(password: string, stored: string) {
+  const [algorithm, storedIterations, salt, expected] = stored.split("$");
+  if (algorithm !== "pbkdf2" || Number(storedIterations) !== iterations || !salt || !expected) return false;
+  return equal(base64Url(await passwordBits(password, salt)), expected);
+}
+
+export function readUserSession(request: Request, env: UserAuthEnv): Promise<UserSession | null> {
+  return readSession(request, env);
+}
+
+async function readSession(request: Request, env: UserAuthEnv): Promise<UserSession | null> {
+  const token = (request.headers.get("Cookie") || "").split(";").map((part) => part.trim()).find((part) => part.startsWith("juris_user="))?.slice("juris_user=".length);
+  if (!token || !env.USER_AUTH_SECRET) return null;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature || !equal(signature, await sign(payload, env.USER_AUTH_SECRET))) return null;
+  try {
+    const session = JSON.parse(fromBase64Url(payload)) as UserSession;
+    if (!session.id || !session.email || !session.role || !session.expiresAt || session.expiresAt < Date.now()) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+export async function createUserSession(user: Omit<UserSession, "expiresAt">, env: UserAuthEnv) {
+  if (!env.USER_AUTH_SECRET) throw new Error("La autenticación de usuarios todavía no está configurada.");
+  const payload = base64UrlText(JSON.stringify({ ...user, expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 14 } satisfies UserSession));
+  return `${payload}.${await sign(payload, env.USER_AUTH_SECRET)}`;
+}
+
+export function userSessionCookie(value: string) {
+  return `juris_user=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 14}`;
+}
+
+export function clearUserSessionCookie() {
+  return "juris_user=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
+}
+
+export function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export function validPassword(value: string) {
+  return value.length >= 8 && value.length <= 128;
+}
+
+export function cleanText(value: unknown, maximum = 500) {
+  return typeof value === "string" ? value.trim().slice(0, maximum) : "";
+}
+
+export function loginDestination(role: UserRole) {
+  return role === "person" ? "/cliente" : "/dashboard";
+}
+
+export async function requireUser(request: Request, env: UserAuthEnv, role?: UserRole) {
+  const session = await readUserSession(request, env);
+  if (!session || (role && session.role !== role)) return null;
+  return session;
+}

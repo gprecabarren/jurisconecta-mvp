@@ -1,21 +1,23 @@
 "use client";
 
-import { CheckCircle2, FilePlus2, PenLine, Plus, Search, ShieldCheck, Trash2, UsersRound } from "lucide-react";
+import { CheckCircle2, FilePlus2, Plus, Search, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { defaultHelp, defaultTeam, type HelpArticle, type TeamMember } from "../../components/content-store";
 import { PortalShell } from "../../components/portal-shell";
 
-const profiles = [
-  ["María Teresa Recabarren", "Derecho Penal · Biobío", "Pendiente de revisión", "mrecabarrend@gmail.com"],
-  ["Pablo San Martín", "Derecho Laboral · Metropolitana", "Activo", "pablo@ejemplo.cl"],
-  ["Camila Fuentes", "Derecho Familiar · Valparaíso", "Activo", "camila@ejemplo.cl"],
-];
+type LawyerProfile = { id: string; fullName: string; email: string; status: string; region: string | null; specialties: string };
+
+function specialtiesLabel(value: string) {
+  try { const specialties = JSON.parse(value) as string[]; return specialties.join(", ") || "Especialidad por completar"; } catch { return "Especialidad por completar"; }
+}
 
 export default function AdminPage() {
   const [team, setTeam] = useState(defaultTeam);
   const [help, setHelp] = useState(defaultHelp);
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [profiles, setProfiles] = useState<LawyerProfile[]>([]);
+  const [profileQuery, setProfileQuery] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -34,6 +36,8 @@ export default function AdminPage() {
     void loadContent();
     return () => { active = false; };
   }, []);
+
+  useEffect(() => { void fetch("/api/admin/profiles").then((response) => response.ok ? response.json() : Promise.reject()).then((result: { profiles: LawyerProfile[] }) => setProfiles(result.profiles)).catch(() => setNotice("No pudimos cargar los perfiles profesionales.")); }, []);
 
   async function saveContent(nextTeam: TeamMember[], nextHelp: HelpArticle[]) {
     setSaving(true);
@@ -58,11 +62,14 @@ export default function AdminPage() {
   function persistTeam(next: TeamMember[]) { void saveContent(next, help); }
   function persistHelp(next: HelpArticle[]) { void saveContent(team, next); }
 
+  const visibleProfiles = profiles.filter((profile) => `${profile.fullName} ${profile.email} ${profile.region || ""}`.toLowerCase().includes(profileQuery.toLowerCase()));
+  const pendingProfiles = profiles.filter((profile) => profile.status === "pending").length;
+
   return <PortalShell admin>
     <div className="portal-page-heading"><div><p className="eyebrow">Administración</p><h1>Panel de control</h1><p>Gestiona perfiles, equipo y contenido de ayuda del MVP.</p></div><span className="admin-state"><ShieldCheck size={17} /> Administración protegida</span></div>
     {notice && <p className="save-confirmation admin-confirmation"><CheckCircle2 size={17} /> {notice}</p>}
-    <section className="metric-grid admin-metrics"><article><span className="metric-icon"><UsersRound size={20} /></span><p>Perfiles profesionales</p><strong>3</strong><small>1 pendiente de revisión</small></article><article><span className="metric-icon"><FilePlus2 size={20} /></span><p>Casos publicados</p><strong>7</strong><small>Últimos 30 días</small></article><article><span className="metric-icon"><ShieldCheck size={20} /></span><p>Contenido público</p><strong>{team.length + help.length}</strong><small>Equipo y soporte</small></article></section>
-    <section className="portal-panel admin-panel" id="perfiles"><div className="panel-title"><div><p className="eyebrow">Revisión</p><h2>Perfiles del sitio</h2></div><label className="admin-search"><Search size={16} /><input placeholder="Buscar perfil" /></label></div><div className="profile-table">{profiles.map(([name, specialty, state, email]) => <div className="profile-row" key={email}><span className="profile-mini-avatar">{name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span><div><b>{name}</b><small>{email}</small></div><span>{specialty}</span><span className={state === "Activo" ? "state-chip active" : "state-chip"}>{state}</span><button className="icon-action" aria-label={`Editar ${name}`}><PenLine size={16} /></button></div>)}</div></section>
+    <section className="metric-grid admin-metrics"><article><span className="metric-icon"><UsersRound size={20} /></span><p>Perfiles profesionales</p><strong>{profiles.length}</strong><small>{pendingProfiles ? `${pendingProfiles} pendiente${pendingProfiles === 1 ? "" : "s"} de revisión` : "Todos revisados"}</small></article><article><span className="metric-icon"><FilePlus2 size={20} /></span><p>Casos publicados</p><strong>Próximamente</strong><small>Se conectará al ciclo de revisión</small></article><article><span className="metric-icon"><ShieldCheck size={20} /></span><p>Contenido público</p><strong>{team.length + help.length}</strong><small>Equipo y soporte</small></article></section>
+    <section className="portal-panel admin-panel" id="perfiles"><div className="panel-title"><div><p className="eyebrow">Revisión</p><h2>Perfiles profesionales reales</h2></div><label className="admin-search"><Search size={16} /><input value={profileQuery} onChange={(event) => setProfileQuery(event.target.value)} placeholder="Buscar perfil" /></label></div><div className="profile-table">{visibleProfiles.map((profile) => <div className="profile-row" key={profile.id}><span className="profile-mini-avatar">{profile.fullName.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span><div><b>{profile.fullName}</b><small>{profile.email}</small></div><span>{specialtiesLabel(profile.specialties)}{profile.region ? ` · ${profile.region}` : ""}</span><span className={profile.status === "active" ? "state-chip active" : "state-chip"}>{profile.status === "active" ? "Activo" : "Pendiente de revisión"}</span></div>)}{!visibleProfiles.length && <p className="client-loading">No encontramos perfiles con esa búsqueda.</p>}</div></section>
     <section className="admin-content-grid"><TeamManager members={team} onChange={persistTeam} saving={saving} /><HelpManager articles={help} onChange={persistHelp} saving={saving} /></section>
   </PortalShell>;
 }
