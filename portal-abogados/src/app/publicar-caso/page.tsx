@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, FileText, MapPin, Send, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, MapPin, Send, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ClientShell } from "../../components/client-shell";
 import { legalAreas, questionsForTopic } from "../../components/legal-matters";

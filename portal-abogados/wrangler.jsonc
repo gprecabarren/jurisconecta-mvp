@@ -11,6 +11,12 @@
       "database_id": "106131c9-81eb-49de-9418-421ccc172576"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "LAWYER_DOCUMENTS",
+      "bucket_name": "jurisconecta-private-documents"
+    }
+  ],
   "assets": {
     "directory": "./out",
     "html_handling": "auto-trailing-slash",

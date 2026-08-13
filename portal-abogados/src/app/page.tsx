@@ -15,7 +15,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  UsersRound,
 } from "lucide-react";
 import { useState } from "react";
 

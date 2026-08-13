@@ -1,15 +1,18 @@
 "use client";
 
-import { CheckCircle2, FilePlus2, Plus, Search, ShieldCheck, Trash2, UsersRound } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { CheckCircle2, ChevronRight, Eye, FilePlus2, Plus, Save, Search, ShieldCheck, Trash2, UsersRound, WalletCards } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { defaultHelp, defaultTeam, type HelpArticle, type TeamMember } from "../../components/content-store";
 import { PortalShell } from "../../components/portal-shell";
 
 type LawyerProfile = { id: string; fullName: string; email: string; status: string; region: string | null; specialties: string };
+type AdminCase = { id: string; category: string; title: string; status: string; credit_cost: number; created_at: string; person_name: string; person_email: string; region: string | null; commune: string | null; access_count: number };
+type Application = { id: string; full_name: string; email: string; status: string; region: string | null; specialties: string; application_status: string; application_submitted_at: string | null; application_review_note: string | null; university: string | null; rut: string | null; selected_plan_code: string; document_count: number };
+type ApplicationDocument = { id: string; user_id: string; document_type: string; file_name: string };
 
-function specialtiesLabel(value: string) {
-  try { const specialties = JSON.parse(value) as string[]; return specialties.join(", ") || "Especialidad por completar"; } catch { return "Especialidad por completar"; }
-}
+function specialtiesLabel(value: string) { try { const specialties = JSON.parse(value) as string[]; return specialties.join(", ") || "Especialidad por completar"; } catch { return "Especialidad por completar"; } }
+function applicationLabel(status: string) { return status === "approved" ? "Aprobado" : status === "submitted" ? "Pendiente" : status === "changes_requested" ? "Cambios solicitados" : "Borrador"; }
+function documentLabel(type: string) { return type === "identity_front" ? "Carnet anverso" : type === "identity_back" ? "Carnet reverso" : "Título universitario"; }
 
 export default function AdminPage() {
   const [team, setTeam] = useState(defaultTeam);
@@ -17,82 +20,47 @@ export default function AdminPage() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [profiles, setProfiles] = useState<LawyerProfile[]>([]);
+  const [cases, setCases] = useState<AdminCase[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [documents, setDocuments] = useState<ApplicationDocument[]>([]);
   const [profileQuery, setProfileQuery] = useState("");
+  const [caseDrafts, setCaseDrafts] = useState<Record<string, string>>({});
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    let active = true;
-    async function loadContent() {
-      try {
-        const response = await fetch("/api/admin/content");
-        if (!response.ok) throw new Error("No se pudo cargar el contenido");
-        const content = await response.json() as { team?: TeamMember[]; help?: HelpArticle[] };
-        if (!active) return;
-        if (Array.isArray(content.team)) setTeam(content.team);
-        if (Array.isArray(content.help)) setHelp(content.help);
-      } catch {
-        if (active) setNotice("No pudimos conectar el contenido. Revisa la configuración de la base de datos.");
-      }
-    }
-    void loadContent();
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => { void fetch("/api/admin/profiles").then((response) => response.ok ? response.json() : Promise.reject()).then((result: { profiles: LawyerProfile[] }) => setProfiles(result.profiles)).catch(() => setNotice("No pudimos cargar los perfiles profesionales.")); }, []);
+  async function loadAdminData() {
+    try {
+      const [contentResponse, profilesResponse, casesResponse, applicationsResponse] = await Promise.all([fetch("/api/admin/content"), fetch("/api/admin/profiles"), fetch("/api/admin/cases"), fetch("/api/admin/applications")]);
+      if (!contentResponse.ok || !profilesResponse.ok || !casesResponse.ok || !applicationsResponse.ok) throw new Error();
+      const [content, profileData, caseData, applicationData] = await Promise.all([contentResponse.json() as Promise<{ team?: TeamMember[]; help?: HelpArticle[] }>, profilesResponse.json() as Promise<{ profiles: LawyerProfile[] }>, casesResponse.json() as Promise<{ cases: AdminCase[] }>, applicationsResponse.json() as Promise<{ applications: Application[]; documents: ApplicationDocument[] }>]);
+      if (Array.isArray(content.team)) setTeam(content.team);
+      if (Array.isArray(content.help)) setHelp(content.help);
+      setProfiles(profileData.profiles);
+      setCases(caseData.cases);
+      setApplications(applicationData.applications);
+      setDocuments(applicationData.documents);
+      setCaseDrafts(Object.fromEntries(caseData.cases.map((item) => [item.id, String(item.credit_cost)])));
+    } catch { setNotice("No pudimos cargar todos los datos administrativos."); }
+  }
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadAdminData(); }, []);
 
   async function saveContent(nextTeam: TeamMember[], nextHelp: HelpArticle[]) {
-    setSaving(true);
-    setNotice("");
-    try {
-      const response = await fetch("/api/admin/content", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ team: nextTeam, help: nextHelp }),
-      });
-      if (!response.ok) throw new Error("No se pudo guardar el contenido");
-      setTeam(nextTeam);
-      setHelp(nextHelp);
-      setNotice("Cambios publicados.");
-    } catch {
-      setNotice("No pudimos publicar los cambios. Inténtalo nuevamente.");
-    } finally {
-      setSaving(false);
-    }
+    setSaving(true); setNotice("");
+    try { const response = await fetch("/api/admin/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ team: nextTeam, help: nextHelp }) }); if (!response.ok) throw new Error(); setTeam(nextTeam); setHelp(nextHelp); setNotice("Contenido publicado."); } catch { setNotice("No pudimos publicar los cambios."); } finally { setSaving(false); }
   }
+  async function saveCaseCost(id: string) {
+    setSaving(true); setNotice("");
+    try { const response = await fetch("/api/admin/cases", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, creditCost: caseDrafts[id] }) }); const result = await response.json() as { error?: string }; if (!response.ok) throw new Error(result.error); setNotice("Costo de créditos actualizado."); await loadAdminData(); } catch (error) { setNotice(error instanceof Error ? error.message : "No pudimos actualizar el caso."); } finally { setSaving(false); }
+  }
+  async function reviewApplication(userId: string, decision: "approve" | "request_changes") {
+    setSaving(true); setNotice("");
+    try { const response = await fetch("/api/admin/applications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, decision, note: reviewNotes[userId] || "" }) }); const result = await response.json() as { error?: string }; if (!response.ok) throw new Error(result.error); setNotice(decision === "approve" ? "Perfil aprobado y créditos asignados." : "Se solicitó una corrección al profesional."); await loadAdminData(); } catch (error) { setNotice(error instanceof Error ? error.message : "No pudimos guardar la revisión."); } finally { setSaving(false); }
+  }
+  const visibleProfiles = useMemo(() => profiles.filter((profile) => `${profile.fullName} ${profile.email} ${profile.region || ""}`.toLowerCase().includes(profileQuery.toLowerCase())), [profiles, profileQuery]);
+  const pendingProfiles = applications.filter((profile) => profile.application_status === "submitted").length;
 
-  function persistTeam(next: TeamMember[]) { void saveContent(next, help); }
-  function persistHelp(next: HelpArticle[]) { void saveContent(team, next); }
-
-  const visibleProfiles = profiles.filter((profile) => `${profile.fullName} ${profile.email} ${profile.region || ""}`.toLowerCase().includes(profileQuery.toLowerCase()));
-  const pendingProfiles = profiles.filter((profile) => profile.status === "pending").length;
-
-  return <PortalShell admin>
-    <div className="portal-page-heading"><div><p className="eyebrow">Administración</p><h1>Panel de control</h1><p>Gestiona perfiles, equipo y contenido de ayuda del MVP.</p></div><span className="admin-state"><ShieldCheck size={17} /> Administración protegida</span></div>
-    {notice && <p className="save-confirmation admin-confirmation"><CheckCircle2 size={17} /> {notice}</p>}
-    <section className="metric-grid admin-metrics"><article><span className="metric-icon"><UsersRound size={20} /></span><p>Perfiles profesionales</p><strong>{profiles.length}</strong><small>{pendingProfiles ? `${pendingProfiles} pendiente${pendingProfiles === 1 ? "" : "s"} de revisión` : "Todos revisados"}</small></article><article><span className="metric-icon"><FilePlus2 size={20} /></span><p>Casos publicados</p><strong>Próximamente</strong><small>Se conectará al ciclo de revisión</small></article><article><span className="metric-icon"><ShieldCheck size={20} /></span><p>Contenido público</p><strong>{team.length + help.length}</strong><small>Equipo y soporte</small></article></section>
-    <section className="portal-panel admin-panel" id="perfiles"><div className="panel-title"><div><p className="eyebrow">Revisión</p><h2>Perfiles profesionales reales</h2></div><label className="admin-search"><Search size={16} /><input value={profileQuery} onChange={(event) => setProfileQuery(event.target.value)} placeholder="Buscar perfil" /></label></div><div className="profile-table">{visibleProfiles.map((profile) => <div className="profile-row" key={profile.id}><span className="profile-mini-avatar">{profile.fullName.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span><div><b>{profile.fullName}</b><small>{profile.email}</small></div><span>{specialtiesLabel(profile.specialties)}{profile.region ? ` · ${profile.region}` : ""}</span><span className={profile.status === "active" ? "state-chip active" : "state-chip"}>{profile.status === "active" ? "Activo" : "Pendiente de revisión"}</span></div>)}{!visibleProfiles.length && <p className="client-loading">No encontramos perfiles con esa búsqueda.</p>}</div></section>
-    <section className="admin-content-grid"><TeamManager members={team} onChange={persistTeam} saving={saving} /><HelpManager articles={help} onChange={persistHelp} saving={saving} /></section>
-  </PortalShell>;
+  return <PortalShell admin><div className="portal-page-heading"><div><p className="eyebrow">Administración</p><h1>Panel de control</h1><p>Revisa profesionales, establece el valor de los casos y administra el contenido del sitio.</p></div><span className="admin-state"><ShieldCheck size={17} /> Administración protegida</span></div>{notice && <p className="save-confirmation admin-confirmation"><CheckCircle2 size={17} /> {notice}</p>}<section className="metric-grid admin-metrics"><article><span className="metric-icon"><UsersRound size={20} /></span><p>Profesionales</p><strong>{profiles.length}</strong><small>{pendingProfiles ? `${pendingProfiles} pendiente${pendingProfiles === 1 ? "" : "s"} de revisión` : "Todos revisados"}</small></article><article><span className="metric-icon"><FilePlus2 size={20} /></span><p>Casos publicados</p><strong>{cases.length}</strong><small>Disponibles sin aprobación previa</small></article><article><span className="metric-icon"><WalletCards size={20} /></span><p>Accesos realizados</p><strong>{cases.reduce((total, item) => total + item.access_count, 0)}</strong><small>Desbloqueos de contacto</small></article></section><section className="portal-panel admin-panel" id="perfiles"><div className="panel-title"><div><p className="eyebrow">Perfiles</p><h2>Profesionales registrados</h2></div><label className="admin-search"><Search size={16} /><input value={profileQuery} onChange={(event) => setProfileQuery(event.target.value)} placeholder="Buscar perfil" /></label></div><div className="profile-table">{visibleProfiles.map((profile) => <div className="profile-row" key={profile.id}><span className="profile-mini-avatar">{profile.fullName.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span><div><b>{profile.fullName}</b><small>{profile.email}</small></div><span>{specialtiesLabel(profile.specialties)}{profile.region ? ` · ${profile.region}` : ""}</span><span className={profile.status === "active" ? "state-chip active" : "state-chip"}>{profile.status === "active" ? "Activo" : "Pendiente"}</span></div>)}{!visibleProfiles.length && <p className="client-loading">No encontramos perfiles con esa búsqueda.</p>}</div></section><section className="portal-panel admin-panel" id="postulaciones"><div className="panel-title"><div><p className="eyebrow">Validación documental</p><h2>Postulaciones de abogados</h2></div><span className="content-count">{pendingProfiles} por revisar</span></div><div className="application-admin-list">{applications.map((application) => <article className="application-admin-row" key={application.id}><div className="application-admin-main"><div><p className="eyebrow">{applicationLabel(application.application_status)}</p><h3>{application.full_name}</h3><p>{application.email} · {application.university || "Universidad pendiente"}</p><small>{specialtiesLabel(application.specialties)} · Plan {application.selected_plan_code}</small></div><span className={application.application_status === "approved" ? "state-chip active" : "state-chip"}>{applicationLabel(application.application_status)}</span></div>{application.application_status !== "draft" && <div className="application-admin-documents">{documents.filter((document) => document.user_id === application.id).map((document) => <a key={document.id} className="document-link" href={`/api/admin/application-document/${document.id}`} target="_blank" rel="noreferrer"><Eye size={15} /> {documentLabel(document.document_type)}<ChevronRight size={14} /></a>)}{application.document_count === 0 && <span className="document-missing">Sin documentos</span>}</div>}{application.application_status === "submitted" && <div className="application-admin-actions"><input value={reviewNotes[application.id] || ""} onChange={(event) => setReviewNotes({ ...reviewNotes, [application.id]: event.target.value })} placeholder="Nota opcional para el abogado" /><button className="portal-outline-button" disabled={saving} onClick={() => reviewApplication(application.id, "request_changes")}>Solicitar cambios</button><button className="portal-primary-button" disabled={saving} onClick={() => reviewApplication(application.id, "approve")}>Aprobar y asignar créditos</button></div>}</article>)}{!applications.length && <p className="client-loading">Aún no hay postulaciones.</p>}</div></section><section className="portal-panel admin-panel" id="casos"><div className="panel-title"><div><p className="eyebrow">Moderación económica</p><h2>Casos y valor de acceso</h2></div><span className="content-count">El caso se publica automáticamente</span></div><div className="case-admin-list">{cases.map((legalCase) => <article className="case-admin-row" key={legalCase.id}><div><p className="eyebrow">{legalCase.category} · {legalCase.status === "closed" ? "Cerrado" : "Abierto"}</p><h3>{legalCase.title}</h3><p>{legalCase.person_name} · {legalCase.commune || legalCase.region || "Ubicación por definir"}</p><small>{legalCase.access_count} {legalCase.access_count === 1 ? "abogado accedió" : "abogados accedieron"}</small></div><div className="case-credit-editor"><label>Créditos<input type="number" min="0" max="1000" value={caseDrafts[legalCase.id] || "0"} onChange={(event) => setCaseDrafts({ ...caseDrafts, [legalCase.id]: event.target.value })} /></label><button className="portal-primary-button" disabled={saving || legalCase.status === "closed"} onClick={() => saveCaseCost(legalCase.id)}><Save size={15} /> Guardar</button></div></article>)}{!cases.length && <p className="client-loading">Aún no se han publicado casos.</p>}</div></section><section className="admin-content-grid"><TeamManager members={team} onChange={(next) => void saveContent(next, help)} saving={saving} /><HelpManager articles={help} onChange={(next) => void saveContent(team, next)} saving={saving} /></section></PortalShell>;
 }
 
-function TeamManager({ members, onChange, saving }: { members: TeamMember[]; onChange: (next: TeamMember[]) => void; saving: boolean }) {
-  const [draft, setDraft] = useState({ name: "", role: "", bio: "" });
-  function add(event: FormEvent) {
-    event.preventDefault();
-    if (!draft.name.trim()) return;
-    const initials = draft.name.split(" ").map((word) => word[0]).join("").slice(0, 2).toUpperCase();
-    onChange([...members, { id: crypto.randomUUID(), initials, ...draft }]);
-    setDraft({ name: "", role: "", bio: "" });
-  }
-  return <section className="portal-panel content-manager" id="equipo"><div className="panel-title"><div><p className="eyebrow">Sitio público</p><h2>Equipo</h2></div><span className="content-count">{members.length} miembros</span></div><div className="managed-list">{members.map((member) => <div className="managed-row" key={member.id}><span className="team-initials">{member.initials}</span><div><b>{member.name}</b><small>{member.role}</small></div><button disabled={saving} onClick={() => onChange(members.filter((item) => item.id !== member.id))} className="delete-button" aria-label={`Eliminar a ${member.name}`}><Trash2 size={16} /></button></div>)}</div><form className="manager-form" onSubmit={add}><h3>Agregar miembro</h3><input disabled={saving} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Nombre completo" required /><input disabled={saving} value={draft.role} onChange={(event) => setDraft({ ...draft, role: event.target.value })} placeholder="Rol o cargo" required /><textarea disabled={saving} value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} placeholder="Descripción breve" rows={2} /><button disabled={saving} className="portal-primary-button"><Plus size={16} /> {saving ? "Publicando..." : "Agregar al equipo"}</button></form></section>;
-}
-
-function HelpManager({ articles, onChange, saving }: { articles: HelpArticle[]; onChange: (next: HelpArticle[]) => void; saving: boolean }) {
-  const [draft, setDraft] = useState({ title: "", category: "Perfil profesional", excerpt: "" });
-  function add(event: FormEvent) {
-    event.preventDefault();
-    if (!draft.title.trim()) return;
-    onChange([...articles, { id: crypto.randomUUID(), ...draft }]);
-    setDraft({ title: "", category: "Perfil profesional", excerpt: "" });
-  }
-  return <section className="portal-panel content-manager" id="soporte"><div className="panel-title"><div><p className="eyebrow">Sitio público</p><h2>Centro de ayuda</h2></div><span className="content-count">{articles.length} artículos</span></div><div className="managed-list help-list">{articles.map((article) => <div className="managed-row" key={article.id}><span className="help-category">{article.category}</span><div><b>{article.title}</b><small>{article.excerpt}</small></div><button disabled={saving} onClick={() => onChange(articles.filter((item) => item.id !== article.id))} className="delete-button" aria-label={`Eliminar ${article.title}`}><Trash2 size={16} /></button></div>)}</div><form className="manager-form" onSubmit={add}><h3>Agregar artículo</h3><input disabled={saving} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Título del artículo" required /><select disabled={saving} value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}><option>Perfil profesional</option><option>Casos y oportunidades</option><option>Plan y facturación</option><option>Cuenta y seguridad</option></select><textarea disabled={saving} value={draft.excerpt} onChange={(event) => setDraft({ ...draft, excerpt: event.target.value })} placeholder="Resumen del artículo" rows={2} /><button disabled={saving} className="portal-primary-button"><Plus size={16} /> {saving ? "Publicando..." : "Agregar artículo"}</button></form></section>;
-}
+function TeamManager({ members, onChange, saving }: { members: TeamMember[]; onChange: (next: TeamMember[]) => void; saving: boolean }) { const [draft, setDraft] = useState({ name: "", role: "", bio: "" }); function add(event: FormEvent) { event.preventDefault(); if (!draft.name.trim()) return; const initials = draft.name.split(" ").map((word) => word[0]).join("").slice(0, 2).toUpperCase(); onChange([...members, { id: crypto.randomUUID(), initials, ...draft }]); setDraft({ name: "", role: "", bio: "" }); } return <section className="portal-panel content-manager" id="equipo"><div className="panel-title"><div><p className="eyebrow">Sitio público</p><h2>Equipo</h2></div><span className="content-count">{members.length} miembros</span></div><div className="managed-list">{members.map((member) => <div className="managed-row" key={member.id}><span className="team-initials">{member.initials}</span><div><b>{member.name}</b><small>{member.role}</small></div><button disabled={saving} onClick={() => onChange(members.filter((item) => item.id !== member.id))} className="delete-button" aria-label={`Eliminar a ${member.name}`}><Trash2 size={16} /></button></div>)}</div><form className="manager-form" onSubmit={add}><h3>Agregar miembro</h3><input disabled={saving} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Nombre completo" required /><input disabled={saving} value={draft.role} onChange={(event) => setDraft({ ...draft, role: event.target.value })} placeholder="Rol o cargo" required /><textarea disabled={saving} value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} placeholder="Descripción breve" rows={2} /><button disabled={saving} className="portal-primary-button"><Plus size={16} /> {saving ? "Publicando..." : "Agregar al equipo"}</button></form></section>; }
+function HelpManager({ articles, onChange, saving }: { articles: HelpArticle[]; onChange: (next: HelpArticle[]) => void; saving: boolean }) { const [draft, setDraft] = useState({ title: "", category: "Perfil profesional", excerpt: "" }); function add(event: FormEvent) { event.preventDefault(); if (!draft.title.trim()) return; onChange([...articles, { id: crypto.randomUUID(), ...draft }]); setDraft({ title: "", category: "Perfil profesional", excerpt: "" }); } return <section className="portal-panel content-manager" id="soporte"><div className="panel-title"><div><p className="eyebrow">Sitio público</p><h2>Centro de ayuda</h2></div><span className="content-count">{articles.length} artículos</span></div><div className="managed-list help-list">{articles.map((article) => <div className="managed-row" key={article.id}><span className="help-category">{article.category}</span><div><b>{article.title}</b><small>{article.excerpt}</small></div><button disabled={saving} onClick={() => onChange(articles.filter((item) => item.id !== article.id))} className="delete-button" aria-label={`Eliminar ${article.title}`}><Trash2 size={16} /></button></div>)}</div><form className="manager-form" onSubmit={add}><h3>Agregar artículo</h3><input disabled={saving} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Título del artículo" required /><select disabled={saving} value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })}><option>Perfil profesional</option><option>Casos y oportunidades</option><option>Plan y facturación</option><option>Cuenta y seguridad</option></select><textarea disabled={saving} value={draft.excerpt} onChange={(event) => setDraft({ ...draft, excerpt: event.target.value })} placeholder="Resumen del artículo" rows={2} /><button disabled={saving} className="portal-primary-button"><Plus size={16} /> {saving ? "Publicando..." : "Agregar artículo"}</button></form></section>; }

@@ -13,5 +13,7 @@ export const onRequestPost = async ({ request, env }: Context) => {
   if (!user || !user.password_hash || !await verifyPassword(password, user.password_hash)) return Response.json({ error: "Correo o contraseña incorrectos." }, { status: 401 });
   if (user.status === "suspended") return Response.json({ error: "Esta cuenta no está disponible. Contacta a soporte." }, { status: 403 });
   const session = await createUserSession({ id: user.id, email: user.email, fullName: user.full_name, role: user.role }, env);
-  return Response.json({ destination: loginDestination(user.role), role: user.role, status: user.status }, { headers: { "Set-Cookie": userSessionCookie(session) } });
+  const application = user.role === "lawyer" ? await env.DB.prepare("SELECT application_status FROM lawyer_profiles WHERE user_id = ? LIMIT 1").bind(user.id).first<{ application_status: string }>() : null;
+  const destination = user.role === "lawyer" && (user.status !== "active" || application?.application_status !== "approved") ? "/postulacion-abogado" : loginDestination(user.role);
+  return Response.json({ destination, role: user.role, status: user.status }, { headers: { "Set-Cookie": userSessionCookie(session) } });
 };

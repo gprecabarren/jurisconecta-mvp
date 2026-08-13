@@ -2,7 +2,7 @@ export type UserRole = "person" | "lawyer" | "admin";
 
 export interface D1Statement {
   bind(...values: unknown[]): D1Statement;
-  run(): Promise<unknown>;
+  run(): Promise<{ meta?: { changes?: number } }>;
   first<T>(): Promise<T | null>;
   all<T>(): Promise<{ results: T[] }>;
 }
@@ -10,6 +10,18 @@ export interface D1Statement {
 export interface D1Database {
   prepare(query: string): D1Statement;
   batch(statements: D1Statement[]): Promise<unknown>;
+}
+
+export interface R2ObjectBody {
+  body: ReadableStream;
+  httpEtag: string;
+  writeHttpMetadata(headers: Headers): void;
+}
+
+export interface R2Bucket {
+  put(key: string, value: ArrayBuffer | Uint8Array | ReadableStream, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> }): Promise<unknown>;
+  get(key: string): Promise<R2ObjectBody | null>;
+  delete(key: string | string[]): Promise<void>;
 }
 
 export interface UserAuthEnv {

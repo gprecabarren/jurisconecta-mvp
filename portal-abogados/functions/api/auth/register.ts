@@ -17,7 +17,7 @@ export const onRequestPost = async ({ request, env }: Context) => {
   const id = crypto.randomUUID();
   const status = role === "lawyer" ? "pending" : "active";
   await env.DB.prepare("INSERT INTO users (id, email, full_name, role, status, password_hash, phone, region, commune, auth_provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'password')").bind(id, email, fullName, role, status, await hashPassword(password), cleanText(payload.phone, 30) || null, cleanText(payload.region, 80) || null, cleanText(payload.commune, 80) || null).run();
-  if (role === "lawyer") await env.DB.prepare("INSERT INTO lawyer_profiles (user_id, subscription_status) VALUES (?, 'none')").bind(id).run();
+  if (role === "lawyer") await env.DB.prepare("INSERT INTO lawyer_profiles (user_id, subscription_status, plan_code, application_status) VALUES (?, 'none', 'silver', 'draft')").bind(id).run();
   const session = await createUserSession({ id, email, fullName, role }, env);
-  return Response.json({ destination: loginDestination(role), role }, { headers: { "Set-Cookie": userSessionCookie(session) } });
+  return Response.json({ destination: role === "lawyer" ? "/postulacion-abogado" : loginDestination(role), role }, { headers: { "Set-Cookie": userSessionCookie(session) } });
 };
