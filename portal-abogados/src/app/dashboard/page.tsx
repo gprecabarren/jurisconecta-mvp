@@ -25,7 +25,7 @@ export default function DashboardPage() {
       </article>
     </section>
     <section className="portal-panel opportunities-panel" id="preferentes">
-      <div className="panel-title"><div><p className="eyebrow">Oportunidades</p><h2>Casos preferentes para ti</h2></div><a href="#pool">Ver casos del pool <ChevronRight size={16} /></a></div>
+      <div className="panel-title"><div><p className="eyebrow">Oportunidades</p><h2>Casos preferentes para ti</h2></div><a href="/casos/pool">Ver casos del pool <ChevronRight size={16} /></a></div>
       <div className="opportunity-row"><span className="opportunity-icon"><UsersRound size={20} /></span><div><b>Defensa en causa penal</b><p>Región Metropolitana · Atención presencial u online</p></div><span className="credit-chip">8 créditos</span><button className="portal-primary-button">Revisar caso</button></div>
       <div className="opportunity-row" id="pool"><span className="opportunity-icon"><CheckCircle2 size={20} /></span><div><b>Orientación por accidente de tránsito</b><p>Concepción · Atención remota</p></div><span className="credit-chip">5 créditos</span><button className="portal-primary-button">Revisar caso</button></div>
     </section>

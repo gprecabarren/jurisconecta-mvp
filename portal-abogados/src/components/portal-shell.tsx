@@ -19,10 +19,10 @@ import type { ReactNode } from "react";
 
 const lawyerItems = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
-  { href: "/dashboard#preferentes", label: "Casos preferentes", icon: Star },
-  { href: "/dashboard#pool", label: "Casos del pool", icon: UsersRound },
-  { href: "/dashboard#accedidos", label: "Casos accedidos", icon: FileCheck2 },
-  { href: "/dashboard#evaluaciones", label: "Evaluaciones", icon: BarChart3 },
+  { href: "/casos/preferentes", label: "Casos preferentes", icon: Star },
+  { href: "/casos/pool", label: "Casos del pool", icon: UsersRound },
+  { href: "/casos/accedidos", label: "Casos accedidos", icon: FileCheck2 },
+  { href: "/evaluaciones", label: "Evaluaciones", icon: BarChart3 },
   { href: "/account", label: "Mi cuenta", icon: Settings2 },
 ];
 

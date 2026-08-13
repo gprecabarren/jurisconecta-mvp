@@ -1,0 +1,4 @@
+import Link from "next/link";
+import { ArrowRight, Star } from "lucide-react";
+import { PortalShell } from "../../components/portal-shell";
+export default function EvaluacionesPage() { return <PortalShell><div className="portal-page-heading"><div><p className="eyebrow">Reputación profesional</p><h1>Evaluaciones</h1><p>La percepción de tus clientes ayuda a fortalecer un perfil confiable.</p></div></div><section className="portal-panel review-empty"><span className="empty-mark"><Star size={30} /></span><p className="eyebrow">Sin evaluaciones todavía</p><h2>Tu primera evaluación llegará después de cerrar un caso.</h2><p>Cuando una persona confirme que trabajó contigo, podrá valorar su experiencia y dejar un comentario para tu perfil.</p><Link className="portal-primary-button" href="/casos/accedidos">Ver casos en seguimiento <ArrowRight size={17} /></Link></section></PortalShell>; }
