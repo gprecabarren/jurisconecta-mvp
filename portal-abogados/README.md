@@ -16,9 +16,13 @@ Infraestructura exclusiva de JurisConecta:
 
 No se debe usar, modificar ni desplegar ningún recurso de `chile3x.cl` desde este proyecto.
 
+El proyecto heredado `jurisconecta-mvp.pages.dev` aún existe en Cloudflare Pages y conserva secretos cifrados que Cloudflare no permite recuperar. No sirve el dominio oficial y no fue modificado ni eliminado; conviene retirarlo solo después de terminar la migración del OAuth administrativo y confirmar que no queda ninguna dependencia.
+
 ### Control de costos
 
 El Worker y D1 están configurados para el plan Free. La carga de documentos a R2 queda **desactivada por defecto** con `LAWYER_APPLICATION_UPLOADS_ENABLED=false`, porque R2 dispone de una franquicia gratuita pero puede generar cobros al superarla. No cambiar esta variable a `true` sin definir primero límites operativos, retención de archivos y alertas de consumo. No se activaron planes, integraciones ni complementos pagados durante esta configuración.
+
+Ningún repositorio puede garantizar por sí solo que una cuenta de Cloudflare no genere cobros por uso o por productos previamente activados. Antes de aceptar postulaciones reales, revisar el consumo y las condiciones oficiales de [Workers](https://developers.cloudflare.com/workers/platform/pricing/), [D1](https://developers.cloudflare.com/d1/platform/pricing/) y [R2](https://developers.cloudflare.com/r2/pricing/). Las pruebas automatizadas no deben subir archivos a R2.
 
 ## Módulos existentes
 
@@ -131,10 +135,6 @@ Estimación para una sola persona desarrollando y revisando. Puede cambiar al de
 | Final | QA de accesibilidad, rendimiento, compatibilidad, respaldo/restore de D1 y checklist de lanzamiento | 2-3 días |
 
 Con el alcance actual sin pagos —registro, casos, postulación y aprobación manual— faltan aproximadamente **3 a 5 días hábiles** para un piloto controlado. Para una versión comercial con propuestas, correos, evaluaciones, seguridad reforzada y pagos, la referencia es **3 a 5 semanas**.
-
-## Control de costos
-
-El proyecto debe permanecer en planes gratuitos. No se habilitan compras, planes pagados ni integraciones facturables desde el código. Antes de aceptar postulaciones reales hay que revisar límites y alertas de consumo de R2, D1 y Workers en la cuenta, ya que ningún repositorio puede garantizar por sí solo que una cuenta de Cloudflare no genere cobros por uso o por productos previamente activados. Las pruebas automatizadas no deben subir archivos a R2.
 
 ## Migraciones
 
