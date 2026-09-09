@@ -16,7 +16,7 @@ Infraestructura exclusiva de JurisConecta:
 
 No se debe usar, modificar ni desplegar ningún recurso de `chile3x.cl` desde este proyecto.
 
-El proyecto heredado `jurisconecta-mvp.pages.dev` aún existe en Cloudflare Pages y conserva secretos cifrados que Cloudflare no permite recuperar. No sirve el dominio oficial y no fue modificado ni eliminado; conviene retirarlo solo después de terminar la migración del OAuth administrativo y confirmar que no queda ninguna dependencia.
+El proyecto heredado `jurisconecta-mvp.pages.dev` aún existe en Cloudflare Pages y conserva secretos cifrados que Cloudflare no permite recuperar. No sirve el dominio oficial y no fue modificado ni eliminado. La migración del OAuth administrativo ya terminó; antes de retirar ese proyecto conviene revisar una última vez sus despliegues y confirmar que no exista una dependencia externa olvidada.
 
 ### Control de costos
 
@@ -94,7 +94,7 @@ Nunca guardar valores reales en Git. El Worker requiere:
 
 Se administran con `wrangler secret put NOMBRE`. El callback autorizado de la aplicación OAuth debe incluir `https://jurisconecta.cl/auth/github/callback`.
 
-`USER_AUTH_SECRET` y `AUTH_SESSION_SECRET` ya están configurados en el Worker. Falta agregar `GITHUB_CLIENT_SECRET`; hasta entonces `/auth/github/login` responde `503` y el panel administrativo no permite iniciar sesión.
+`USER_AUTH_SECRET`, `AUTH_SESSION_SECRET` y `GITHUB_CLIENT_SECRET` están configurados en el Worker. La aplicación OAuth `JurisConecta Administración` usa `https://jurisconecta.cl/` como página principal, el callback exacto `https://jurisconecta.cl/auth/github/callback` y no permite coincidencias mediante comodines.
 
 ## Ruta de prueba manual
 
@@ -104,7 +104,7 @@ Se administran con `wrangler secret put NOMBRE`. El callback autorizado de la ap
 4. Desde `/publicar-caso`, crear un caso; comprobarlo en `/cliente` y luego cerrarlo.
 5. Cerrar sesión en `/ingresar`, registrar un abogado y confirmar la redirección a `/postulacion-abogado`.
 6. Probar la edición del perfil profesional. No subir documentos de prueba mientras no se confirme el control de consumo de R2.
-7. Configurar OAuth, entrar por `/admin` y revisar contenido, perfiles, postulaciones y costos de casos.
+7. Entrar por `/admin` con GitHub y revisar contenido, perfiles, postulaciones y costos de casos.
 8. Tras aprobar un abogado, comprobar `/casos/preferentes`, `/casos/pool`, el descuento de créditos y `/casos/accedidos` con datos que no sean reales.
 9. Repetir en móvil y escritorio, revisando navegación por teclado, mensajes de error y cierre de sesión.
 
@@ -117,6 +117,7 @@ El 9 de septiembre de 2026 se completaron:
 - Pruebas en `https://jurisconecta.cl` del dominio principal, redirección `www`, contenido público y controles de acceso.
 - Flujo real de persona: registro, sesión, perfil, crear/listar/cerrar caso y limpieza posterior de todos los datos de prueba.
 - Flujo real de abogado: registro, perfil en estado `draft`, tres planes disponibles y limpieza posterior de todos los datos de prueba.
+- Flujo real de administración: redirección a GitHub, callback en el dominio oficial, creación de sesión y carga del panel protegido `/admin/`.
 - No se subieron archivos a R2 ni se probaron pagos.
 
 ## Trabajo pendiente y cronograma estimado
@@ -125,13 +126,13 @@ Estimación para una sola persona desarrollando y revisando. Puede cambiar al de
 
 | Prioridad | Trabajo | Estimación |
 | --- | --- | --- |
-| Alta | Completar y probar OAuth de administración en el dominio oficial; confirmar secretos, callback y recuperación ante errores | 0,5-1 día |
 | Alta | Pruebas end-to-end de registro, sesiones, roles, casos, aprobación y créditos; retirar o anonimizar cuentas/datos de demostración | 1-2 días |
 | Alta | Endurecimiento previo a usuarios reales: rate limiting/Turnstile, política de documentos, validaciones de archivos, auditoría de permisos y recuperación de contraseña | 2-4 días |
 | Media | Conectar realmente `/account`: edición profesional, cambio de contraseña y preferencias; hoy parte de esa pantalla solo guarda estado visual | 1-2 días |
 | Media | Implementar propuestas/aceptación, coincidencias y notificaciones; la tabla `case_proposals` existe, pero todavía no tiene flujo de interfaz/API | 3-5 días |
 | Media | Completar evaluaciones, soporte operativo, correos transaccionales y páginas legales (privacidad, términos y tratamiento de datos) | 3-5 días |
 | Baja / comercial | Integrar Webpay u otro pago, renovaciones y conciliación. No activar hasta que se autoricen costos y condiciones comerciales | 4-7 días |
+| Operativa | Revisar y retirar el proyecto heredado de Cloudflare Pages cuando se confirme que no tiene dependencias externas | 0,5 día |
 | Final | QA de accesibilidad, rendimiento, compatibilidad, respaldo/restore de D1 y checklist de lanzamiento | 2-3 días |
 
 Con el alcance actual sin pagos —registro, casos, postulación y aprobación manual— faltan aproximadamente **3 a 5 días hábiles** para un piloto controlado. Para una versión comercial con propuestas, correos, evaluaciones, seguridad reforzada y pagos, la referencia es **3 a 5 semanas**.
