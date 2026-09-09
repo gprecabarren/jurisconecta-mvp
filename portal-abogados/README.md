@@ -4,19 +4,19 @@ Portal chileno para conectar personas que necesitan orientación legal con aboga
 
 ## Estado actual (9 de septiembre de 2026)
 
-La aplicación es un frontend Next.js exportado como sitio estático y servido por el Worker `jurisconecta-mvp`. El mismo Worker atiende las rutas dinámicas que antes estaban preparadas como Cloudflare Pages Functions en `functions/`.
+La aplicación es un frontend Next.js exportado como sitio estático y servido por el Worker `jurisconecta`. El mismo Worker atiende las rutas dinámicas que antes estaban preparadas como Cloudflare Pages Functions en `functions/`.
 
 Infraestructura exclusiva de JurisConecta:
 
 - Zona y dominios: `jurisconecta.cl` y `www.jurisconecta.cl`; `www` redirige al dominio principal.
-- Worker: `jurisconecta-mvp`, con Static Assets y enrutamiento de API.
+- Worker: `jurisconecta`, con Static Assets y enrutamiento de API.
 - D1: `jurisconecta-db` mediante el binding `DB`.
 - R2: `jurisconecta-private-documents` mediante `LAWYER_DOCUMENTS`, únicamente para antecedentes privados de postulaciones profesionales.
 - Repositorio: `gprecabarren/jurisconecta` (antes `gprecabarren/jurisconecta-mvp`).
 
 No se debe usar, modificar ni desplegar ningún recurso de `chile3x.cl` desde este proyecto.
 
-El proyecto heredado `jurisconecta-mvp.pages.dev` aún existe en Cloudflare Pages y conserva secretos cifrados que Cloudflare no permite recuperar. No sirve el dominio oficial y no fue modificado ni eliminado. La migración del OAuth administrativo ya terminó; antes de retirar ese proyecto conviene revisar una última vez sus despliegues y confirmar que no exista una dependencia externa olvidada.
+El proyecto heredado de Cloudflare Pages `jurisconecta-mvp` fue eliminado el 9 de septiembre de 2026. Solo publicaba copias en `*.pages.dev` y no servía el dominio oficial. La producción y los futuros despliegues quedan centralizados en el Worker `jurisconecta`.
 
 ### Control de costos
 
@@ -132,7 +132,6 @@ Estimación para una sola persona desarrollando y revisando. Puede cambiar al de
 | Media | Implementar propuestas/aceptación, coincidencias y notificaciones; la tabla `case_proposals` existe, pero todavía no tiene flujo de interfaz/API | 3-5 días |
 | Media | Completar evaluaciones, soporte operativo, correos transaccionales y páginas legales (privacidad, términos y tratamiento de datos) | 3-5 días |
 | Baja / comercial | Integrar Webpay u otro pago, renovaciones y conciliación. No activar hasta que se autoricen costos y condiciones comerciales | 4-7 días |
-| Operativa | Revisar y retirar el proyecto heredado de Cloudflare Pages cuando se confirme que no tiene dependencias externas | 0,5 día |
 | Final | QA de accesibilidad, rendimiento, compatibilidad, respaldo/restore de D1 y checklist de lanzamiento | 2-3 días |
 
 Con el alcance actual sin pagos —registro, casos, postulación y aprobación manual— faltan aproximadamente **3 a 5 días hábiles** para un piloto controlado. Para una versión comercial con propuestas, correos, evaluaciones, seguridad reforzada y pagos, la referencia es **3 a 5 semanas**.

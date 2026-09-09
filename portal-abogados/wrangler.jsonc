@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "jurisconecta-mvp",
+  "name": "jurisconecta",
   "account_id": "4ea4b93b4874da271a0116bd4728f282",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-09",
