@@ -38,7 +38,7 @@ export type UserSession = {
 };
 
 const encoder = new TextEncoder();
-// Pages Free has a tight CPU ceiling. Use this only for the test accounts in the MVP;
+// Workers Free has a tight CPU ceiling. Use this only for the test accounts in the MVP;
 // production login should move to an external identity provider such as Google.
 const iterations = 10000;
 

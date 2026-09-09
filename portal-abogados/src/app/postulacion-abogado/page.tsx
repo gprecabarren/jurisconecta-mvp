@@ -23,7 +23,7 @@ export default function LawyerApplicationPage() {
   const [selectedPlan, setSelectedPlan] = useState("silver");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  useEffect(() => { void fetch("/api/lawyer/profile").then((response) => response.ok ? response.json() : Promise.reject()).then((result: { profile: ProfileData; application: ApplicationData }) => { setProfile(result.profile); setApplication(result.application || {}); setSelectedPlan(result.application?.selected_plan_code || "silver"); }).catch(() => setMessage("No pudimos cargar tu postulación.")); }, []);
+  useEffect(() => { void fetch("/api/lawyer/profile").then(async (response) => { if (!response.ok) throw new Error(); return await response.json() as { profile: ProfileData; application: ApplicationData }; }).then((result) => { setProfile(result.profile); setApplication(result.application || {}); setSelectedPlan(result.application?.selected_plan_code || "silver"); }).catch(() => setMessage("No pudimos cargar tu postulación.")); }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

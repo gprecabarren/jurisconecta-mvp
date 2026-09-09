@@ -7,7 +7,7 @@ type CaseInput = { category?: unknown; topic?: unknown; situation?: unknown; des
 type CaseRow = { id: string; category: string; title: string; description: string; region: string | null; status: string; created_at: string; attention_mode: string | null; commune: string | null; view_count: number; };
 
 export const onRequestGet = async ({ request, env }: Context) => {
-  if (!env.DB) return Response.json({ error: "La base de datos no est� conectada." }, { status: 503 });
+  if (!env.DB) return Response.json({ error: "La base de datos no está conectada." }, { status: 503 });
   const session = await requireUser(request, env, "person");
   if (!session) return Response.json({ error: "No autorizado" }, { status: 401 });
   const cases = await env.DB.prepare("SELECT c.id, c.category, c.title, c.description, c.region, c.status, c.created_at, d.attention_mode, d.commune, COALESCE((SELECT COUNT(*) FROM case_views cv WHERE cv.case_id = c.id), 0) AS view_count FROM legal_cases c LEFT JOIN case_details d ON d.case_id = c.id WHERE c.person_id = ? ORDER BY c.created_at DESC").bind(session.id).all<CaseRow>();
@@ -15,7 +15,7 @@ export const onRequestGet = async ({ request, env }: Context) => {
 };
 
 export const onRequestPost = async ({ request, env }: Context) => {
-  if (!env.DB) return Response.json({ error: "La base de datos no est� conectada." }, { status: 503 });
+  if (!env.DB) return Response.json({ error: "La base de datos no está conectada." }, { status: 503 });
   const session = await requireUser(request, env, "person");
   if (!session) return Response.json({ error: "No autorizado" }, { status: 401 });
   const payload = await request.json() as CaseInput;

@@ -21,7 +21,7 @@ export default function PublishCasePage() {
   const [saving, setSaving] = useState(false);
   const questions = useMemo(() => questionsForTopic(topic), [topic]);
   const caseCategory = categoryForTopic(area.title, topic);
-  useEffect(() => { void fetch("/api/auth/me").then((response) => response.ok ? response.json() : null).then((result: { user?: Profile } | null) => { if (result?.user) setDetails((current) => ({ ...current, region: current.region || result.user?.region || "", commune: current.commune || result.user?.commune || "" })); }).catch(() => undefined); }, []);
+  useEffect(() => { void fetch("/api/auth/me").then(async (response) => response.ok ? await response.json() as { user?: Profile } : null).then((result) => { if (result?.user) setDetails((current) => ({ ...current, region: current.region || result.user?.region || "", commune: current.commune || result.user?.commune || "" })); }).catch(() => undefined); }, []);
 
   function chooseArea(nextArea: typeof area) { setArea(nextArea); setTopic(""); }
   function continueDetails(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!topic) return; setStep(3); window.scrollTo({ top: 0, behavior: "smooth" }); }

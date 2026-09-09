@@ -22,7 +22,7 @@ export function PortalShell({ children, admin = false }: { children: ReactNode; 
   const pathname = usePathname();
   const [lawyer, setLawyer] = useState<LawyerHeader | null>(null);
   useEffect(() => {
-    if (!admin) void fetch("/api/lawyer/profile").then((response) => response.ok ? response.json() : null).then((result: { profile?: LawyerHeader } | null) => setLawyer(result?.profile || null)).catch(() => undefined);
+    if (!admin) void fetch("/api/lawyer/profile").then(async (response) => response.ok ? await response.json() as { profile?: LawyerHeader } : null).then((result) => setLawyer(result?.profile || null)).catch(() => undefined);
   }, [admin]);
   async function logout() { await fetch("/api/auth/logout", { method: "POST" }); window.location.assign("/"); }
   const items = admin

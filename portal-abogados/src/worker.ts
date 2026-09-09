@@ -1,11 +1,130 @@
-export interface Env {
-  ASSETS: {
-    fetch(request: Request): Promise<Response>;
-  };
+import { onRequest as protectLawyerAccount } from "../functions/account/[[path]]";
+import { onRequest as protectAdmin } from "../functions/admin/[[path]]";
+import { onRequest as protectLawyerCases } from "../functions/casos/[[path]]";
+import { onRequest as protectClient } from "../functions/cliente/[[path]]";
+import { onRequest as protectDashboard } from "../functions/dashboard/[[path]]";
+import { onRequest as protectReviews } from "../functions/evaluaciones/[[path]]";
+import { onRequest as protectPlans } from "../functions/planes/[[path]]";
+import { onRequest as protectLawyerApplication } from "../functions/postulacion-abogado/[[path]]";
+import { onRequest as protectPublishCase } from "../functions/publicar-caso/[[path]]";
+import { onRequestGet as getAdminApplicationDocument } from "../functions/api/admin/application-document/[id]";
+import { onRequestGet as getAdminApplications, onRequestPatch as reviewAdminApplication } from "../functions/api/admin/applications";
+import { onRequestGet as getAdminCases, onRequestPatch as updateAdminCase } from "../functions/api/admin/cases";
+import { onRequestGet as getAdminContent, onRequestPut as updateAdminContent } from "../functions/api/admin/content";
+import { onRequestGet as getAdminProfiles } from "../functions/api/admin/profiles";
+import { onRequestPost as login } from "../functions/api/auth/login";
+import { onRequestPost as logout } from "../functions/api/auth/logout";
+import { onRequestGet as getCurrentUser } from "../functions/api/auth/me";
+import { onRequestPatch as updateCurrentUser } from "../functions/api/auth/profile";
+import { onRequestPost as register } from "../functions/api/auth/register";
+import { onRequestGet as getClientCases, onRequestPatch as updateClientCase, onRequestPost as createClientCase } from "../functions/api/cases";
+import { onRequestGet as getPublicContent } from "../functions/api/content";
+import { onRequestPost as submitLawyerApplication } from "../functions/api/lawyer/application";
+import { onRequestGet as getLawyerCases, onRequestPost as accessLawyerCase } from "../functions/api/lawyer/cases";
+import { onRequestGet as getLawyerPlans } from "../functions/api/lawyer/plans";
+import { onRequestGet as getLawyerProfile, onRequestPatch as updateLawyerProfile } from "../functions/api/lawyer/profile";
+import { onRequestGet as githubCallback } from "../functions/auth/github/callback";
+import { onRequestGet as githubLogin } from "../functions/auth/github/login";
+import type { AuthEnv } from "../functions/_lib/github-auth";
+import type { UserAuthEnv } from "../functions/_lib/user-auth";
+
+type AppEnv = CloudflareEnv & AuthEnv & UserAuthEnv;
+type PageMiddleware = (context: { request: Request; env: AppEnv; next: () => Promise<Response> }) => Promise<Response>;
+
+const apiNotFound = () => Response.json({ error: "Ruta no encontrada." }, { status: 404 });
+
+function methodNotAllowed(allowed: string[]) {
+  return Response.json(
+    { error: "Método no permitido." },
+    { status: 405, headers: { Allow: allowed.join(", ") } },
+  );
 }
 
-const worker = {
-  async fetch(request: Request, env: Env): Promise<Response> {
+function routePrefix(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+async function dispatchApi(request: Request, env: AppEnv, pathname: string): Promise<Response> {
+  const method = request.method.toUpperCase();
+
+  if (pathname === "/api/health") {
+    if (method !== "GET" && method !== "HEAD") return methodNotAllowed(["GET", "HEAD"]);
+    return method === "HEAD"
+      ? new Response(null, { status: 200 })
+      : Response.json({ status: "ok", service: "jurisconecta" });
+  }
+  if (pathname === "/api/content") return method === "GET" ? getPublicContent({ env }) : methodNotAllowed(["GET"]);
+  if (pathname === "/api/cases") {
+    if (method === "GET") return getClientCases({ request, env });
+    if (method === "POST") return createClientCase({ request, env });
+    if (method === "PATCH") return updateClientCase({ request, env });
+    return methodNotAllowed(["GET", "POST", "PATCH"]);
+  }
+
+  if (pathname === "/api/auth/login") return method === "POST" ? login({ request, env }) : methodNotAllowed(["POST"]);
+  if (pathname === "/api/auth/logout") return method === "POST" ? logout() : methodNotAllowed(["POST"]);
+  if (pathname === "/api/auth/me") return method === "GET" ? getCurrentUser({ request, env }) : methodNotAllowed(["GET"]);
+  if (pathname === "/api/auth/profile") return method === "PATCH" ? updateCurrentUser({ request, env }) : methodNotAllowed(["PATCH"]);
+  if (pathname === "/api/auth/register") return method === "POST" ? register({ request, env }) : methodNotAllowed(["POST"]);
+
+  if (pathname === "/api/lawyer/application") return method === "POST" ? submitLawyerApplication({ request, env }) : methodNotAllowed(["POST"]);
+  if (pathname === "/api/lawyer/cases") {
+    if (method === "GET") return getLawyerCases({ request, env });
+    if (method === "POST") return accessLawyerCase({ request, env });
+    return methodNotAllowed(["GET", "POST"]);
+  }
+  if (pathname === "/api/lawyer/plans") return method === "GET" ? getLawyerPlans({ request, env }) : methodNotAllowed(["GET"]);
+  if (pathname === "/api/lawyer/profile") {
+    if (method === "GET") return getLawyerProfile({ request, env });
+    if (method === "PATCH") return updateLawyerProfile({ request, env });
+    return methodNotAllowed(["GET", "PATCH"]);
+  }
+
+  if (pathname === "/api/admin/applications") {
+    if (method === "GET") return getAdminApplications({ request, env });
+    if (method === "PATCH") return reviewAdminApplication({ request, env });
+    return methodNotAllowed(["GET", "PATCH"]);
+  }
+  if (pathname === "/api/admin/cases") {
+    if (method === "GET") return getAdminCases({ request, env });
+    if (method === "PATCH") return updateAdminCase({ request, env });
+    return methodNotAllowed(["GET", "PATCH"]);
+  }
+  if (pathname === "/api/admin/content") {
+    if (method === "GET") return getAdminContent({ request, env });
+    if (method === "PUT") return updateAdminContent({ request, env });
+    return methodNotAllowed(["GET", "PUT"]);
+  }
+  if (pathname === "/api/admin/profiles") return method === "GET" ? getAdminProfiles({ request, env }) : methodNotAllowed(["GET"]);
+
+  const documentMatch = pathname.match(/^\/api\/admin\/application-document\/([^/]+)$/);
+  if (documentMatch) {
+    if (method !== "GET") return methodNotAllowed(["GET"]);
+    return getAdminApplicationDocument({ request, env, params: { id: decodeURIComponent(documentMatch[1]) } });
+  }
+
+  return apiNotFound();
+}
+
+async function serveProtectedPage(request: Request, env: AppEnv, pathname: string): Promise<Response | null> {
+  const next = () => env.ASSETS.fetch(request);
+  const protections: Array<[string, PageMiddleware]> = [
+    ["/admin", protectAdmin],
+    ["/account", protectLawyerAccount],
+    ["/casos", protectLawyerCases],
+    ["/dashboard", protectDashboard],
+    ["/evaluaciones", protectReviews],
+    ["/planes", protectPlans],
+    ["/postulacion-abogado", protectLawyerApplication],
+    ["/cliente", protectClient],
+    ["/publicar-caso", protectPublishCase],
+  ];
+  const protection = protections.find(([prefix]) => routePrefix(pathname, prefix));
+  return protection ? protection[1]({ request, env, next }) : null;
+}
+
+export default {
+  async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.hostname === "www.jurisconecta.cl") {
@@ -13,12 +132,23 @@ const worker = {
       return Response.redirect(url.toString(), 308);
     }
 
-    if (url.pathname === "/api/health") {
-      return Response.json({ status: "ok", service: "jurisconecta" });
+    try {
+      if (routePrefix(url.pathname, "/api")) return await dispatchApi(request, env, url.pathname);
+      if (url.pathname === "/auth/github/login") return request.method === "GET" ? githubLogin({ request, env }) : methodNotAllowed(["GET"]);
+      if (url.pathname === "/auth/github/callback") return request.method === "GET" ? githubCallback({ request, env }) : methodNotAllowed(["GET"]);
+
+      const protectedResponse = await serveProtectedPage(request, env, url.pathname.replace(/\/$/, "") || "/");
+      return protectedResponse ?? env.ASSETS.fetch(request);
+    } catch (error) {
+      console.error(JSON.stringify({
+        message: "Unhandled request error",
+        method: request.method,
+        path: url.pathname,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+      return routePrefix(url.pathname, "/api")
+        ? Response.json({ error: "Ocurrió un error inesperado." }, { status: 500 })
+        : new Response("Ocurrió un error inesperado.", { status: 500 });
     }
-
-    return env.ASSETS.fetch(request);
   },
-};
-
-export default worker;
+} satisfies ExportedHandler<AppEnv>;

@@ -1,6 +1,6 @@
 import { cleanText, D1Database, normalizeRut, R2Bucket, requireUser, UserAuthEnv, validRut } from "../../_lib/user-auth";
 
-interface Context { request: Request; env: UserAuthEnv & { DB?: D1Database; LAWYER_DOCUMENTS?: R2Bucket }; }
+interface Context { request: Request; env: UserAuthEnv & { DB?: D1Database; LAWYER_DOCUMENTS?: R2Bucket; LAWYER_APPLICATION_UPLOADS_ENABLED?: string }; }
 type ApplicationInput = { rut?: unknown; idDocumentNumber?: unknown; birthDate?: unknown; graduationDate?: unknown; university?: unknown; attentionMode?: unknown; serviceLocalities?: unknown; experienceYears?: unknown; gender?: unknown; additionalStudies?: unknown; workExperience?: unknown; linkedinUrl?: unknown; twitterUrl?: unknown; youtubeUrl?: unknown; facebookUrl?: unknown; instagramUrl?: unknown; websiteUrl?: unknown; address?: unknown; planCode?: unknown; specialties?: unknown; bio?: unknown; };
 const plans = new Set(["silver", "gold", "premium"]);
 
@@ -14,6 +14,7 @@ export const onRequestPost = async ({ request, env }: Context) => {
   const documentBucket = env.LAWYER_DOCUMENTS;
   const session = await requireUser(request, env, "lawyer");
   if (!session) return Response.json({ error: "No autorizado" }, { status: 401 });
+  if (env.LAWYER_APPLICATION_UPLOADS_ENABLED !== "true") return Response.json({ error: "La carga de postulaciones está temporalmente pausada para evitar consumo de almacenamiento." }, { status: 503 });
   const form = await request.formData();
   const fields = Object.fromEntries([...form.entries()].filter(([, value]) => typeof value === "string")) as Record<string, string>;
   const input = fields as ApplicationInput;
@@ -46,10 +47,11 @@ export const onRequestPost = async ({ request, env }: Context) => {
     ];
     uploaded.forEach(({ type, key, file }) => statements.push(db.prepare("INSERT INTO lawyer_application_documents (id, user_id, document_type, object_key, file_name, mime_type, file_size) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), session.id, type, key, file.name.slice(0, 180), file.type, file.size)));
     await db.batch(statements);
-    await documentBucket.delete(existing.results.map((document) => document.object_key));
+    if (existing.results.length) await documentBucket.delete(existing.results.map((document) => document.object_key));
     return Response.json({ submitted: true });
   } catch (error) {
-    await documentBucket.delete(uploaded.map((document) => document.key));
-    return Response.json({ error: error instanceof Error ? "No pudimos enviar tu postulación." : "No pudimos enviar tu postulación." }, { status: 500 });
+    if (uploaded.length) await documentBucket.delete(uploaded.map((document) => document.key));
+    console.error(JSON.stringify({ message: "lawyer application upload failed", error: error instanceof Error ? error.message : String(error) }));
+    return Response.json({ error: "No pudimos enviar tu postulación." }, { status: 500 });
   }
 };

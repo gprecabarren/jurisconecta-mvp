@@ -11,7 +11,7 @@ export default function ClientAccountPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
-  useEffect(() => { void fetch("/api/auth/me").then((response) => response.ok ? response.json() : Promise.reject()).then((result: { user: Profile }) => setProfile(result.user)).catch(() => setNotice("No pudimos cargar tus datos.")); }, []);
+  useEffect(() => { void fetch("/api/auth/me").then(async (response) => { if (!response.ok) throw new Error(); return await response.json() as { user: Profile }; }).then((result) => setProfile(result.user)).catch(() => setNotice("No pudimos cargar tus datos.")); }, []);
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);

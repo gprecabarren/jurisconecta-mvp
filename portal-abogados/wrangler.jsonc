@@ -3,8 +3,9 @@
   "name": "jurisconecta-mvp",
   "account_id": "4ea4b93b4874da271a0116bd4728f282",
   "main": "src/worker.ts",
-  "compatibility_date": "2026-08-08",
-  "workers_dev": true,
+  "compatibility_date": "2026-09-09",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
   "routes": [
     {
       "pattern": "jurisconecta.cl",
@@ -15,6 +16,9 @@
       "custom_domain": true
     }
   ],
+  "vars": {
+    "LAWYER_APPLICATION_UPLOADS_ENABLED": "false"
+  },
   "d1_databases": [
     {
       "binding": "DB",
